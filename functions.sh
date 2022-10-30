@@ -18,6 +18,11 @@ install_deps()
     sudo snap install maas --channel=${maas_version}/stable
 }
 
+pkg_cleanup()
+{
+    sudo snap remove maas maas-cli lxd
+}
+
 # Ensures that any dependent packages are installed for any MAAS CLI commands
 # This also logs in to MAAS, and sets up the admin profile
 maas_login()
@@ -31,7 +36,7 @@ maas_system_id()
 {
     node_name=$1
 
-    maas ${maas_profile} machines read hostname=${node_name} | jq ".[].system_id" | sed s/\"//g
+    maas ${maas_profile} machines read hostname=${node_name} | jq -r ".[].system_id"
 }
 
 # Based on the nodename, finds the pod id, if it exists
@@ -39,8 +44,8 @@ maas_pod_id()
 {
     node_name=$1
 
-    maas ${maas_profile} pods read | jq ".[] | {pod_id:.id, hyp_name:.name}" --compact-output | \
-        grep ${node_name} | jq ".pod_id" | sed s/\"//g
+    maas ${maas_profile} pods read | jq -c ".[] | {pod_id:.id, hyp_name:.name}" | \
+        grep ${node_name} | jq -r ".pod_id"
 }
 
 machine_add_tag()
@@ -98,7 +103,7 @@ ensure_machine_in_state()
     time_end=${time_start}
 
     # The initial state of the system
-    status_name=$(maas ${maas_profile} machine read ${system_id} | jq ".status_name" | sed s/\"//g)
+    status_name=$(maas ${maas_profile} machine read ${system_id} | jq -r ".status_name")
 
     # We will continue to check the state of the machine to see if it is in
     # $state or the timeout has occured, which defaults to 20 mins
@@ -108,7 +113,7 @@ ensure_machine_in_state()
         sleep 20
 
         # Grab the current state
-        status_name=$(maas ${maas_profile} machine read ${system_id} | jq ".status_name" | sed s/\"//g)
+        status_name=$(maas ${maas_profile} machine read ${system_id} | jq -r ".status_name")
 
         # Grab the current time to compare against
         time_end=$(date +%s)
@@ -147,7 +152,7 @@ maas_add_node()
             mac_addresses=${mac_addr}        \
             architecture=amd64/generic       \
             power_type=${power_type} ${power_params})
-        system_id=$(echo $machine_create | jq .system_id | sed s/\"//g)
+        system_id=$(echo $machine_create | jq -r .system_id)
 
         ensure_machine_in_state ${system_id} "Ready"
 
@@ -160,7 +165,7 @@ maas_add_node()
             # The machine needs to be broken, ready or allocated.
             hack_commission=$(maas $maas_profile machine commission ${system_id})
             hack_break=$(maas $maas_profile machine mark-broken ${system_id})
-            int_update=$(maas $maas_profile interface update ${system_id} $(echo $boot_int | jq .int_id | sed s/\"//g) mac_address=${mac_addr})
+            int_update=$(maas $maas_profile interface update ${system_id} $(echo $boot_int | jq -r .int_id) mac_address=${mac_addr})
         fi
         machine_power_update=$(maas ${maas_profile} machine update ${system_id} \
             power_type=${power_type} ${power_params})

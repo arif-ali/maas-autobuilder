@@ -26,7 +26,7 @@ maas_auto_assign_networks()
 
     # Grabs all the interfaces that are attached to the system
     node_interfaces=$(maas ${maas_profile} interfaces read ${system_id} \
-        | jq ".[] | {id:.id, name:.name, mode:.links[].mode, subnet:.links[].subnet.id, vlan:.vlan.vid }" --compact-output)
+        | jq -c ".[] | {id:.id, name:.name, mode:.links[].mode, subnet:.links[].subnet.id, vlan:.vlan.vid }")
 
     # This for loop will go through all the interfaces and enable Auto-Assign
     # on all ports
@@ -42,8 +42,8 @@ maas_auto_assign_networks()
         # the subnet details from subnets that have the vlan assigned/discovered
         # at commissioning stage
         if [[ $subnet_id == null ]] ; then
-            subnet_line=$(maas admin subnets read | jq ".[] | {subnet_id:.id, vlan:.vlan.vid, vlan_id:.vlan.id}" --compact-output | grep "vlan\":$vlan,")
-            subnet_id=$(echo $subnet_line | jq .subnet_id | sed s/\"//g)
+            subnet_line=$(maas admin subnets read | jq -c ".[] | {subnet_id:.id, vlan:.vlan.vid, vlan_id:.vlan.id}" | grep "vlan\":$vlan,")
+            subnet_id=$(echo $subnet_line | jq -r .subnet_id)
         fi
         # If vlan is the external network, then we want to grab IP via DHCP
         # from the external network. Other networks would be auto mode
@@ -86,35 +86,35 @@ maas_create_partitions()
 
     # Grab the first disk, typically /dev/sda
     blk_device=$(maas ${maas_profile} block-devices read ${system_id} | jq ".[] | select(.name == \"sda\")")
-    blk_device_id=$(echo $blk_device | jq .id)
+    blk_device_id=$(echo $blk_device | jq -r .id)
 
     # create /boot/efi partition, just in-case we are using a uEFI based VM
     boot_size=512
     size=$(( ${boot_size} * 1024 * 1024 ))
 
     boot_part=$(maas ${maas_profile} partitions create ${system_id} ${blk_device_id} size=$size)
-    boot_part_id=$(echo $boot_part | jq .id)
+    boot_part_id=$(echo $boot_part | jq -r .id)
 
     boot_format=$(maas ${maas_profile} partition format ${system_id} ${blk_device_id} ${boot_part_id} fstype=fat32)
     boot_mount=$(maas ${maas_profile} partition mount ${system_id} ${blk_device_id} ${boot_part_id} mount_point=/boot/efi)
 
     # Create the volume group for the rest of the partitions
     vg_part=$(maas ${maas_profile} partitions create ${system_id} ${blk_device_id})
-    vg_part_id=$(echo $vg_part | jq .id)
+    vg_part_id=$(echo $vg_part | jq -r .id)
 
     vg_create=$(maas ${maas_profile} volume-groups create ${system_id} name=${vg_name} partitions=${vg_part_id})
-    vg_id=$(echo $vg_create | jq .id)
+    vg_id=$(echo $vg_create | jq -r .id)
 
     for part in ${!parts[@]}; do
 
         if [[ ${part_size[$part]} == "remaining" ]] ; then
-            size=$(maas ${maas_profile} volume-group read ${system_id} ${vg_id} | jq ".available_size" | sed s/\"//g)
+            size=$(maas ${maas_profile} volume-group read ${system_id} ${vg_id} | jq -r ".available_size")
         else
             size=$(( ${part_size[$part]} * 1024 * 1024 * 1024 ))
         fi
 
         lv_create=$(maas ${maas_profile} volume-group create-logical-volume ${system_id} ${vg_id} name=${part} size=${size})
-        lv_block_id=$(echo ${lv_create} | jq .id)
+        lv_block_id=$(echo ${lv_create} | jq -r .id)
 
         stg_fs=$(maas ${maas_profile} block-device format ${system_id} ${lv_block_id} fstype=ext4)
         stg_mount=$(maas ${maas_profile} block-device mount ${system_id} ${lv_block_id} mount_point=${parts[$part]})
@@ -171,7 +171,7 @@ do_nodes()
         fi
         system_id=$(maas_system_id ${virt_node})
 
-        status_name=$(maas ${maas_profile} machine read ${system_id} | jq ".status_name" | sed s/\"//g)
+        status_name=$(maas ${maas_profile} machine read ${system_id} | jq -r ".status_name")
 
         if [[ ${status_name} == "Deployed" ]] ; then
             case $function in
@@ -353,6 +353,9 @@ build_vms() {
         # Now define the network definition
         for ((net=0;net<${#net_type[@]};net++)); do
             network_spec+=" --network=$net_prefix="${net_type[$net]}",model=$nic_model"
+            if [[ "${bridge_type}" == "ovs" ]] ; then
+                network_spec+=",virtualport_type=openvswitch"
+            fi
         done
 
         if [[ $juju_total -le $juju_count ]] ; then
@@ -565,3 +568,6 @@ while getopts ":cdjnprtwz" opt; do
         ;;
   esac
 done
+
+# Cleanup
+pkg_cleanup

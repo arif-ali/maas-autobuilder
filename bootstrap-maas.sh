@@ -156,7 +156,7 @@ build_maas() {
     maas $maas_profile boot-source-selection update 1 1 arches="amd64"
 
     # The release that is is downloading by default
-    default_release=$(maas $maas_profile boot-source-selection read 1 1 | jq .release | sed s/\"//g)
+    default_release=$(maas $maas_profile boot-source-selection read 1 1 | jq -r .release)
 
     # Add bionic if the default is focal, or vice-versa
     [[ $default_release == "focal" ]] && other_release="bionic"
@@ -177,7 +177,7 @@ build_maas() {
 
     i=0
     for space in ${maas_spaces[*]} ; do
-        fabric_id=$(maas admin fabrics read | jq ".[] | {id:.id, vlan:.vlans[].vid, fabric:.name}" --compact-output | grep fabric-0 | jq ".id")
+        fabric_id=$(maas admin fabrics read | jq -c ".[] | {id:.id, vlan:.vlans[].vid, fabric:.name}" | grep fabric-0 | jq ".id")
         space_object=$(maas ${maas_profile} spaces create name=${space})
         echo $space_object | jq .
         space_id=$(echo $space_object | jq ".id")
@@ -357,7 +357,7 @@ fi
     juju bootstrap "$cloud_name" --debug --config=config-"$rand_uuid".yaml \
         --model-default image-metadata-url=http://192.168.1.12/lxd/ \
         --model-default agent-metadata-url=http://192.168.1.12/juju/tools/ \
-        --constraints "tags=juju"
+        --no-gui --constraints "tags=juju"
 
     # Since we created ephemeral files, let's wipe them out. Comment if you want to keep them around
     if [[ $? = 0 ]]; then

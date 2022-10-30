@@ -14,16 +14,16 @@ maas_assign_networks()
 
     # Get the details of the physical interface
     phsy_int=$(maas ${maas_profile} interfaces read ${system_id} | jq -c ".[] | {id:.id, name:.name,parent:.parents}" | grep "parent.*\[\]")
-    phys_int_name=$(echo $phsy_int | jq .name | sed s/\"//g)
-    phys_int_id=$(echo $phsy_int | jq .id | sed s/\"//g)
+    phys_int_name=$(echo $phsy_int | jq -r .name)
+    phys_int_id=$(echo $phsy_int | jq -r .id)
 
     i=0
     for vlan in ${vlans[*]}
     do
         subnet_line=$(maas admin subnets read | jq -rc --arg vlan "$vlan" ".[] | select(.vlan.vid == $vlan) | select(.name | contains(\"/24\"))| {subnet_id:.id, vlan_id:.vlan.id, cidr: .cidr}")
-        maas_vlan_id=$(echo $subnet_line | jq .vlan_id | sed s/\"//g)
-        maas_subnet_id=$(echo $subnet_line | jq .subnet_id | sed s/\"//g)
-        sub_prefix=$(echo $subnet_line | jq .cidr | sed s/\"//g | sed 's/0\/24//g' )
+        maas_vlan_id=$(echo $subnet_line | jq -r .vlan_id)
+        maas_subnet_id=$(echo $subnet_line | jq -r .subnet_id)
+        sub_prefix=$(echo $subnet_line | jq -r .cidr | sed 's/0\/24//g')
         ip_addr=""
         if [[ $i -eq 0 ]] ; then
             # Set the first interface to be static as per the configuration so that it
@@ -36,7 +36,7 @@ maas_assign_networks()
             vlan_int_id=$(maas ${maas_profile} interfaces read ${system_id} | jq --argjson vlan ${vlan} '.[] | select(.vlan.vid == $vlan) | select(.type == "vlan") | .id')
             if [[ -z "$vlan_int_id" ]] ; then
                 vlan_int=$(maas ${maas_profile} interfaces create-vlan ${system_id} vlan=${maas_vlan_id} parent=$phys_int_id)
-                vlan_int_id=$(echo $vlan_int | jq .id | sed s/\"//g)
+                vlan_int_id=$(echo $vlan_int | jq -r .id)
             fi
             if [[ $vlan -eq $external_vlan ]] ; then
                 # Set the external IP to be static as per the configuration
@@ -50,9 +50,9 @@ maas_assign_networks()
         fi
         # Check to see if the bridge interface already exists, otherwise create it
         bridge_int=$(maas ${maas_profile} interfaces read ${system_id} | jq --argjson vlan ${vlan} '.[] | select(.vlan.vid == $vlan) | select(.type == "bridge")')
-        [[ -z "${bridge_int}" ]] && bridge_int=$(maas ${maas_profile} interfaces create-bridge ${system_id} name=${bridges[$i]} vlan=$maas_vlan_id mac_address=${hypervisor_mac} parent=$vlan_int_id)
-        bridge_int_id=$(echo $bridge_int | jq .id | sed s/\"//g)
-        cur_mode=$(echo $bridge_int | jq ".links[].mode" | sed s/\"//g)
+        [[ -z "${bridge_int}" ]] && bridge_int=$(maas ${maas_profile} interfaces create-bridge ${system_id} name=${bridges[$i]} vlan=$maas_vlan_id mac_address=${hypervisor_mac} parent=$vlan_int_id bridge_tyepe=${bridge_type})
+        bridge_int_id=$(echo $bridge_int | jq -r .id)
+        cur_mode=$(echo $bridge_int | jq -r ".links[].mode")
         # If the mode is already set correctly, then move on
         [[ $cur_mode == "auto" ]] && [[ $mode == "AUTO" ]] && continue
         #bridge_unlink=$(maas ${maas_profile} interface unlink-subnet $system_id $bridge_int_id id=$( echo $bridge_int_id | jq {maas_subnet_id})
@@ -79,10 +79,10 @@ maas_create_partitions()
     storage_layout=$(maas ${maas_profile} machine set-storage-layout ${system_id} storage_layout=lvm vg_name=${hypervisor_name} lv_name=root lv_size=${actual_size} root_disk=${boot_disk})
 
     vg_device=$(echo $storage_layout | jq ".volume_groups[].id" )
-    remaining_space=$(maas ${maas_profile} volume-group read ${system_id} ${vg_device} | jq ".available_size" | sed s/\"//g)
+    remaining_space=$(maas ${maas_profile} volume-group read ${system_id} ${vg_device} | jq -r ".available_size")
 
     libvirt_lv=$(maas ${maas_profile} volume-group create-logical-volume ${system_id} ${vg_device} name=libvirt size=${remaining_space})
-    libvirt_block_id=$(echo ${libvirt_lv} | jq .id)
+    libvirt_block_id=$(echo ${libvirt_lv} | jq -r .id)
 
     stg_fs=$(maas ${maas_profile} block-device format ${system_id} ${libvirt_block_id} fstype=ext4)
 
@@ -90,27 +90,27 @@ maas_create_partitions()
 
     for ((disk=1;disk<${#disk_names[@]};disk++)); do
 
-        disk_id=$(echo $disks | jq ".[] | select(.name == \"${disk_names[$disk]}\") | .id")
+        disk_id=$(echo $disks | jq -r ".[] | select(.name == \"${disk_names[$disk]}\") | .id")
 
         create_partition=$(maas ${maas_profile} partitions create ${system_id} ${disk_id})
 
-        part_id=$(echo $create_partition | jq .id)
+        part_id=$(echo $create_partition | jq -r .id)
 
         if [[ $disk -eq 1 ]] ; then
             vg_create=$(maas ${maas_profile} volume-groups create ${system_id} name=${hypervisor_name}-nvme block_device=${disk_id} partitions=${part_id})
 
-            vg_id=$(echo $vg_create | jq .id)
-            vg_size=$(echo $vg_create | jq .size)
+            vg_id=$(echo $vg_create | jq -r .id)
+            vg_size=$(echo $vg_create | jq -r .size)
         else
 
             vg_update=$(maas ${maas_profile} volume-group update ${system_id} ${vg_id} add_partitions=${part_id})
-            vg_size=$(echo $vg_update | jq .size)
+            vg_size=$(echo $vg_update | jq -r .size)
         fi
 
     done
 
     lv_create=$(maas admin volume-group create-logical-volume ${system_id} ${vg_id} name=images size=${vg_size})
-    lv_id=$(echo $lv_create | jq .id)
+    lv_id=$(echo $lv_create | jq -r .id)
     lv_fs=$(maas ${maas_profile} block-device format ${system_id} ${lv_id} fstype=ext4)
     lv_mount=$(maas ${maas_profile} block-device mount ${system_id} ${lv_id} mount_point=${storage_path})
 }
@@ -118,7 +118,7 @@ maas_create_partitions()
 maas_add_pod()
 {
     pod_create=$(maas ${maas_profile} pods create power_address="qemu+ssh://${virsh_user}@${hypervisor_ip}/system" power_user="${virsh_user}" power_pass="${qemu_password}" type="virsh")
-    pod_id=$(echo $pod_create | jq ".id" | sed s/\"//g)
+    pod_id=$(echo $pod_create | jq -r .id)
     pod_name=$(maas ${maas_profile} pod update ${pod_id} name=${hypervisor_name})
 }
 

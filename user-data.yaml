@@ -26,6 +26,7 @@ packages:
   - virtinst
   - jq
   - ksmtuned
+  - openvswitch-switch
 
 snap:
   commands:

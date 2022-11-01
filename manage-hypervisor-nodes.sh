@@ -50,7 +50,7 @@ maas_assign_networks()
         fi
         # Check to see if the bridge interface already exists, otherwise create it
         bridge_int=$(maas ${maas_profile} interfaces read ${system_id} | jq --argjson vlan ${vlan} '.[] | select(.vlan.vid == $vlan) | select(.type == "bridge")')
-        [[ -z "${bridge_int}" ]] && bridge_int=$(maas ${maas_profile} interfaces create-bridge ${system_id} name=${bridges[$i]} vlan=$maas_vlan_id mac_address=${hypervisor_mac} parent=$vlan_int_id bridge_tyepe=${bridge_type})
+        [[ -z "${bridge_int}" ]] && bridge_int=$(maas ${maas_profile} interfaces create-bridge ${system_id} name=${bridges[$i]} vlan=$maas_vlan_id mac_address=${hypervisor_mac} parent=$vlan_int_id bridge_type=${bridge_type})
         bridge_int_id=$(echo $bridge_int | jq -r .id)
         cur_mode=$(echo $bridge_int | jq -r ".links[].mode")
         # If the mode is already set correctly, then move on

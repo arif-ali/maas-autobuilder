@@ -350,13 +350,6 @@ build_vms() {
             net_type=(${networks[@]})
         fi
 
-        # Now define the network definition
-        for ((net=0;net<${#net_type[@]};net++)); do
-            network_spec+=" --network=$net_prefix="${net_type[$net]}",model=$nic_model"
-            if [[ "${bridge_type}" == "ovs" ]] ; then
-                network_spec+=",virtualport_type=openvswitch"
-            fi
-        done
 
         if [[ $juju_total -le $juju_count ]] ; then
             printf -v virt_node %s-%02d "$hypervisor_name-juju" "$juju_total"
@@ -365,7 +358,11 @@ build_vms() {
             vcpus="$juju_cpus"
             node_type="juju"
 
+            # Now define the network definition
             network_spec="--network=$net_prefix="${net_type[0]}",model=$nic_model"
+            if [[ "${bridge_type}" == "ovs" ]] ; then
+                network_spec+=",virtualport_type=openvswitch"
+            fi
 
             disk_spec="--disk path=$storage_path/$virt_node/$virt_node.img"
             disk_spec+=",format=$storage_format,size=${juju_disk},bus=$stg_bus,io=native,cache=directsync"
@@ -390,6 +387,14 @@ build_vms() {
                 node_type="control"
                 disk_count=1
             fi
+
+            # Now define the network definition
+            for ((net=0;net<${#net_type[@]};net++)); do
+                network_spec+=" --network=$net_prefix="${net_type[$net]}",model=$nic_model"
+                if [[ "${bridge_type}" == "ovs" ]] ; then
+                    network_spec+=",virtualport_type=openvswitch"
+                fi
+            done
 
             # Based on the disks array, it will create a definition to add these
             # disks to the VM

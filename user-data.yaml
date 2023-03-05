@@ -66,17 +66,18 @@ write_files:
       ln -s /usr/bin/virsh /home/virsh/bin/virsh
       sh -c echo "PATH=/home/virsh/bin" >> /home/virsh/.bashrc
 
-      cat >> /etc/ssh/sshd_config << EOF
+      systemctl restart sshd
+
+      usermod -a -G libvirt,libvirt-qemu virsh
+    permissions: '0755'
+    owner: root:root
+  - path: /etc/ssh/sshd_config.d/90-virsh-user.conf
+    content: |
       Match user virsh
           X11Forwarding no
           AllowTcpForwarding no
           PermitTTY no
           ForceCommand nc -q 0 -U /var/run/libvirt/libvirt-sock
-      EOF
-      systemctl restart sshd
-
-      usermod -a -G libvirt,libvirt-qemu virsh
-    permissions: '0755'
     owner: root:root
   - path: /root/wipe_disk.sh
     content: |

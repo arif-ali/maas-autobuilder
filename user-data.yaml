@@ -20,6 +20,8 @@ users:
     lock_passwd: false
     passwd: $6$SVOxUrhz9mNyscUJ$hKF0RMY1nkGC3BpiozpaznE3AWerd8Ac8AlV9YEpLx50bLw5zweFCuTEEdS04McJNlaIqA.E4HiPuaIYGMzlH/
     shell: "/bin/rbash"
+    ssh_import_id:
+      - lp:arif-ali
 
 ## Install additional packages on first boot
 packages:

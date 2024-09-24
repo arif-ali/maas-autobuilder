@@ -104,6 +104,11 @@ write_files:
              link-local: []
     permissions: '0644'
     owner: root:root
+  - path: /etc/sysctl.d/99-custom.conf
+    content: |
+      kernel.softlockup_all_cpu_backtrace=1
+    permissions: '0644'
+    owner: root:root
 
 # Runs any command that we need to run post install
 runcmd:
@@ -112,3 +117,4 @@ runcmd:
   - [ "/root/initial_setup.sh" ]
   - [ "rm", "/root/initial_setup.sh" ]
   - [ "netplan", "apply" ]
+  - [ "sysctl", "-p", "--system"]

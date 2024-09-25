@@ -451,6 +451,7 @@ build_vms() {
             --graphics spice,clipboard_copypaste=no,mouse_mode=client,filetransfer_enable=off \
             --cpu host-passthrough,cache.mode=passthrough  \
             --controller "$stg_bus",model=virtio-scsi,index=0  \
+            --osinfo detect=on,require=off \
             $extra_args $disk_spec \
             $network_spec > "$virt_node.xml" &&
 

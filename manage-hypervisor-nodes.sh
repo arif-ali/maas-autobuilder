@@ -13,7 +13,7 @@ maas_assign_networks()
     system_id=$1
 
     # Get the details of the physical interface
-    phsy_int=$(maas ${maas_profile} interfaces read ${system_id} | jq -c ".[] | {id:.id, name:.name,parent:.parents}" | grep "parent.*\[\]")
+    phsy_int=$(maas ${maas_profile} interfaces read ${system_id} | jq -c ".[] | {id:.id, name:.name, mac:.mac_address, parent:.parents}" | grep "${hypervisor_mac}.*parent.*\[\]")
     phys_int_name=$(echo $phsy_int | jq -r .name)
     phys_int_id=$(echo $phsy_int | jq -r .id)
 

@@ -343,21 +343,24 @@ apt-https-proxy: $squid_proxy
 EOF
 fi
 
+    local="--local"
+    local="--client"
+
     echo "Adding cloud............: $cloud_name"
     # juju add-cloud --replace "$cloud_name" clouds-"$rand_uuid".yaml
-    juju update-cloud "$cloud_name" --local -f clouds-"$rand_uuid".yaml
+    juju update-cloud "$cloud_name" ${local} -f clouds-"$rand_uuid".yaml
 
     echo "Adding credentials for..: $cloud_name"
     #juju add-credential --replace "$cloud_name" -f credentials-"$rand_uuid".yaml
-    juju add-credential "$cloud_name" --local -f credentials-"$rand_uuid".yaml
+    juju add-credential "$cloud_name" ${local} -f credentials-"$rand_uuid".yaml
 
     echo "Details for cloud.......: $cloud_name..."
-    juju clouds --local --format json | jq --arg cloud "$cloud_name" '.[$cloud]'
+    juju clouds ${local} --format json | jq --arg cloud "$cloud_name" '.[$cloud]'
 
     juju bootstrap "$cloud_name" --debug --config=config-"$rand_uuid".yaml \
         --model-default image-metadata-url=http://192.168.1.12/lxd/ \
         --model-default agent-metadata-url=http://192.168.1.12/juju/tools/ \
-        --no-gui --constraints "tags=juju"
+        --constraints "tags=juju"
 
     # Since we created ephemeral files, let's wipe them out. Comment if you want to keep them around
     if [[ $? = 0 ]]; then

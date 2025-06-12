@@ -265,6 +265,11 @@ wipe_disks() {
             doing_juju="true"
             (( virt-- ))
             (( juju_total++ ))
+        elif [[ $unbeam_total -le $sunbeam_count ]] ; then
+            printf -v virt_node %s-%02d "$hypervisor_name-sunbeam" "$sunbeam_total"
+            doing_sunbeam="true"
+            (( virt-- ))
+            (( sunbeam_total++ ))
         else
             printf -v virt_node %s-%02d "$compute" "$virt"
             doing_juju="false"
@@ -283,7 +288,7 @@ wipe_disks() {
         virsh --connect qemu:///system shutdown "$virt_node"
 
         # Remove the disks
-        if [[ $doing_juju == "true" ]] ; then
+        if [[ $doing_juju == "true" ]] || [[ $doing_sunbeam == "true" ]] ; then
             rm -rf "$storage_path/$virt_node/$virt_node.img"
             rm -rf "$ceph_storage_path/$virt_node/$virt_node.img"
         else
@@ -372,6 +377,27 @@ build_vms() {
             (( juju_total++ ))
             # This will ensure that we only create the juju VMs
             [[ $only_juju == "true" ]] && [[ $juju_total -gt $juju_count ]] && virt=$(( $node_count + 1 ))
+        elif [[ $sunbeam_total -le $sunbeam_count ]] ; then
+            printf -v virt_node %s-%02d "$hypervisor_name-sunbeam" "$sunbeam_total"
+
+            ram="$sunbeam_ram"
+            vcpus="$sunbeam_cpus"
+            node_type="sunbeam"
+
+            # Now define the network definition
+            network_spec="--network=$net_prefix="${net_type[0]}",model=$nic_model"
+            if [[ "${bridge_type}" == "ovs" ]] ; then
+                network_spec+=",virtualport_type=openvswitch"
+            fi
+
+            disk_spec="--disk path=$storage_path/$virt_node/$virt_node.img"
+            disk_spec+=",format=$storage_format,size=${juju_disk},bus=$stg_bus,io=native,cache=directsync"
+
+            # So that we have the right amount of VMs
+            (( virt-- ))
+            (( sunbeam_total++ ))
+            # This will ensure that we only create the juju VMs
+            [[ $only_sunbeam == "true" ]] && [[ $sunbeam_total -gt $sunbeam_count ]] && virt=$(( $node_count + 1 ))
         else
             printf -v virt_node %s-%02d "$compute" "$virt"
             # Based on the variables in hypervisor.config, we define the variables

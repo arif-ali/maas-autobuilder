@@ -56,7 +56,9 @@ machine_add_tag()
     [[ -n "$enable_tagging" ]] && [[ $enable_tagging == "false" ]] && return
 
     # If the tag doesn't exist, then create it
-    if [[ $(maas ${maas_profile} tag read ${tag}) == "Not Found" ]] ; then
+    err='No Tag matches the given query.'
+    read_tag=$(maas ${maas_profile} tag read ${tag})
+    if [[ ${read_tag} == "Not Found" ]] || [[ ${read_tag} == ${err}]]; then
         case $tag in
             "pod-console-logging")
                 kernel_opts="console=tty1 console=ttyS0"
